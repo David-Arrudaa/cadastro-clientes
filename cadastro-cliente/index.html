@@ -205,77 +205,89 @@
       }
 
       // ===== FUNÇÕES PRINCIPAIS =====
-      async function carregarClientes() {
-        try {
-          showLoading();
-          const response = await axios.get(API_URL);
-          const tbody = document.getElementById("clientesList");
+async function carregarClientes() {
+  try {
+    showLoading();
+    const response = await axios.get(API_URL);
+    const tbody = document.getElementById("clientesList");
 
-          tbody.innerHTML = response.data
-            .map(
-              (cliente) => `
-                    <tr>
-                        <td>${cliente.nome}</td>
-                        <td>${formatCPF(cliente.cpf)}</td>
-                        <td>${
-                          cliente.telefones
-                            ?.map(
-                              (t) => `
-                            <div>(${t.ddd}) ${t.numero}</div>
-                        `
-                            )
-                            .join("") || "Nenhum"
-                        }</td>
-                        <td>
-                            <button class="btn btn-warning btn-sm me-1" 
-                                    onclick="editarCliente('${
-                                      cliente.cpf
-                                    }')">Editar</button>
-                            <button class="btn btn-danger btn-sm" 
-                                    onclick="excluirCliente('${
-                                      cliente.cpf
-                                    }')">Excluir</button>
-                        </td>
-                    </tr>
-                `
-            )
-            .join("");
-        } catch (error) {
-          alert("Erro ao carregar clientes!");
-        } finally {
-          hideLoading();
-        }
-      }
+    tbody.innerHTML = response.data
+      .map((cliente) => {
+        const cpfOriginal = cliente.cpf;
+        const cpfFormatado = formatCPF(cpfOriginal);
 
-      async function editarCliente(cpf) {
-    try {
-        const response = await axios.get(`${API_URL}/${cpf}`);
-        const cliente = response.data;
-        
-        document.getElementById('nome').value = cliente.nome;
-        document.getElementById('cpf').value = cliente.cpf;
-        document.getElementById('cpf').disabled = true;
-        document.getElementById('modoEdicao').value = cliente.cpf;
-        
-        const container = document.getElementById('telefonesContainer');
-        container.innerHTML = '';
-        cliente.telefones.forEach(t => adicionarTelefone(t.ddd, t.numero));
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-    } catch (error) {
-        alert("Erro ao carregar cliente para edição!");
-    }
+        return `
+          <tr>
+              <td>${cliente.nome}</td>
+              <td>${cpfFormatado}</td>
+              <td>${
+                cliente.telefones
+                  ?.map(
+                    (t) => `
+                      <div>(${t.ddd}) ${t.numero}</div>
+                  `
+                  )
+                  .join("") || "Nenhum"
+              }</td>
+              <td>
+                  <button class="btn btn-warning btn-sm me-1" 
+                          onclick="editarCliente('${cpfOriginal}')">Editar</button>
+                  <button class="btn btn-danger btn-sm" 
+                          onclick="excluirCliente('${cpfOriginal}')">Excluir</button>
+              </td>
+          </tr>
+        `;
+      })
+      .join("");
+  } catch (error) {
+    alert("Erro ao carregar clientes!");
+  } finally {
+    hideLoading();
+  }
 }
-      async function excluirCliente(cpf) {
-        if (!confirm("Tem certeza que deseja excluir este cliente?")) return;
-        try {
-          await axios.delete(`${API_URL}/${cpf}`);
-          carregarClientes();
-        } catch (error) {
-          alert("Erro ao excluir cliente!");
-        }
-      }
+
+async function editarCliente(cpf) {
+  try {
+    const cpfLimpo = cpf.replace(/\D/g, ''); // remove pontos, traços, etc
+
+    console.log("CPF recebido para edição:", cpfLimpo);
+    console.log("URL da requisição:", `${API_URL}/${cpfLimpo}`);
+
+    const response = await axios.get(`${API_URL}/${cpfLimpo}`);
+    const cliente = response.data;
+
+    document.getElementById('nome').value = cliente.nome;
+    document.getElementById('cpf').value = cliente.cpf;
+    document.getElementById('cpf').disabled = true;
+    document.getElementById('modoEdicao').value = cliente.cpf;
+
+    const container = document.getElementById('telefonesContainer');
+    container.innerHTML = '';
+    cliente.telefones.forEach(t => adicionarTelefone(t.ddd, t.numero));
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (error) {
+    console.error('Erro ao carregar cliente para edição:', error);
+    alert("Erro ao carregar cliente para edição!");
+  }
+}
+
+// Função de exclusão de cliente
+async function excluirCliente(cpf) {
+  if (confirm(`Você tem certeza que deseja excluir o cliente com CPF ${formatCPF(cpf)}?`)) {
+    try {
+      // Faça a chamada à API para excluir o cliente
+      await axios.delete(`${API_URL}/${cpf}`);
+
+      // Recarregar a página após a exclusão
+      location.reload();
+
+    } catch (error) {
+      alert("Erro ao excluir o cliente.");
+    }
+  }
+}
+
 
       // ===== FUNÇÕES AUXILIARES =====
       function formatCPF(cpf) {
@@ -304,29 +316,30 @@
             `;
       }
 
-      // Função de consulta por CPF
-      document
-        .getElementById("formConsultaCPF")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const cpf = document
-            .getElementById("cpfConsulta")
-            .value.replace(/\D/g, "");
+// Função de consulta por CPF
+document
+  .getElementById("formConsultaCPF")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault(); // Impede o envio padrão do formulário
 
-          // Nova validação (3 a 11 dígitos)
-          if (cpf.length < 3 || cpf.length > 11) {
-            alert("Informe entre 3 e 11 dígitos para consulta!");
-            return;
-          }
+    const cpf = document
+      .getElementById("cpfConsulta")
+      .value.replace(/\D/g, ""); // Remove caracteres não numéricos
 
-          try {
-            const response = await axios.get(`${API_URL}/${cpf}`);
-            const resultado = document.getElementById("resultadoConsulta");
+    // Verifica se o CPF tem entre 3 e 11 dígitos
+    if (cpf.length < 3 || cpf.length > 11) {
+      alert("Informe entre 3 e 11 dígitos para consulta!");
+      return;
+    }
 
-            if (Array.isArray(response.data)) {
-              // Resultado parcial
-              resultado.innerHTML = `
-        <div class="card border-info">
+    try {
+      const response = await axios.get(`${API_URL}/${cpf}`);
+      const resultado = document.getElementById("resultadoConsulta");
+
+      if (Array.isArray(response.data)) {
+        // Caso haja múltiplos resultados
+        resultado.innerHTML = `
+          <div class="card border-info">
             <div class="card-body">
                 <h5 class="card-title">Clientes Encontrados (${
                   response.data.length
@@ -350,56 +363,50 @@
                                 <td>${
                                   cliente.telefones
                                     ?.map(
-                                      (t) => `
-                                    <div>(${t.ddd}) ${t.numero}</div>
-                                `
+                                      (t) => `(${t.ddd}) ${t.numero}`
                                     )
-                                    .join("") || "Nenhum"
+                                    .join(", ") || "Nenhum"
                                 }</td>
                                 <td>
                                     <button class="btn btn-warning btn-sm me-1" 
-                                            onclick="editarCliente('${
-                                              cliente.cpf
-                                            }')">Editar</button>
+                                            onclick="editarCliente('${cliente.cpf}')">Editar</button>
                                     <button class="btn btn-danger btn-sm" 
-                                            onclick="excluirCliente('${
-                                              cliente.cpf
-                                            }')">Excluir</button>
+                                            onclick="excluirCliente('${cliente.cpf}')">Excluir</button>
                                 </td>
-                            </tr>
-                        `
+                            </tr>`
                           )
                           .join("")}
                     </tbody>
                 </table>    
-                    </div>
-                    
-                </div>
-            `;
-            } else {
-              // Resultado exato
-              const cliente = response.data;
-              resultado.innerHTML = `
-                <div class="card border-primary">
-                    <div class="card-body">
-                        <h5 class="card-title">Cliente Encontrado</h5>
-                        <p><strong>Nome:</strong> ${cliente.nome}</p>
-                        <p><strong>CPF:</strong> ${formatCPF(cliente.cpf)}</p>
-                        <p><strong>Telefones:</strong> ${cliente.telefones
-                          .map((t) => `(${t.ddd}) ${t.numero}`)
-                          .join(", ")}</p>
-                    </div>
-                </div>
-            `;
-            }
-          } catch (error) {
-            document.getElementById("resultadoConsulta").innerHTML = `
-            <div class="alert alert-danger">${
-              error.response?.data || "Erro na consulta"
-            }</div>
+            </div>
+          </div>
         `;
-          }
-        });
+      } else {
+        // Caso seja encontrado apenas um cliente
+        const cliente = response.data;
+        resultado.innerHTML = `
+          <div class="card border-primary">
+            <div class="card-body">
+              <h5 class="card-title">Cliente Encontrado</h5>
+              <p><strong>Nome:</strong> ${cliente.nome}</p>
+              <p><strong>CPF:</strong> ${formatCPF(cliente.cpf)}</p>
+              <p><strong>Telefones:</strong> ${cliente.telefones
+                .map((t) => `(${t.ddd}) ${t.numero}`)
+                .join(", ")}</p>
+              <div class="mt-3">
+                <button class="btn btn-warning btn-sm" onclick="editarCliente('${cliente.cpf}')">Editar</button>
+                <button class="btn btn-danger btn-sm ms-2" onclick="excluirCliente('${cliente.cpf}')">Excluir</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    } catch (error) {
+      alert("Erro ao realizar a consulta.");
+    }
+  });
+
+
 
       function limparConsulta() {
         document.getElementById("cpfConsulta").value = "";
